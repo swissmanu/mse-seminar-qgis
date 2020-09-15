@@ -1,0 +1,49 @@
+on:
+  push:
+    tags:
+    - 'v*'
+
+name: Build and Upload Release Assets
+
+jobs:
+  build:
+    name: Build and Upload Release Assets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract Version from Tag
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Build LaTeX
+        uses: xu-cheng/latex-action@v2
+        with:
+          root_file: paper.tex
+          pre_compile: |
+            tlmgr install \
+            ccicons \
+            minted fvextra xstring framed
+          extra_system_packages: py-pygments
+          latexmk_shell_escape: true
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./paper.pdf
+          asset_name: paper-${{ steps.get_version.outputs.VERSION }}.pdf
+          asset_content_type: application/pdf
